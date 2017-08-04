@@ -1,0 +1,5 @@
+"0","wea %>%"
+"0","        ggplot(aes(DATE,TMAX))+"
+"0","        geom_point() +"
+"0","        ylab('Max Temp') +"
+"0","        ggtitle('Downtown Boulder Weather')"

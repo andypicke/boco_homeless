@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "---\ntitle: \"EDA - Andy Pickering\"\noutput: \n  html_notebook: \n    toc: yes\n---\n\n# Title\n\n## Introduction\n\n```{r}\nsuppressPackageStartupMessages(library(dplyr))\nlibrary(readr)\nsuppressPackageStartupMessages(library(lubridate))\nlibrary(ggplot2)\n```\n\n\n## Weather\n\n```{r}\nwea <- read_csv('/Users/Andy/Google Drive/boco-jail/downtown-boulder-weather.csv')\nglimpse(wea)\n```\n\n\n```{r}\nwea$DATE <- lubridate::ymd(wea$DATE)\nhead(wea)\n```\n\n\n```{r}\nwea %>%\n        ggplot(aes(DATE,TMAX))+\n        geom_point() +\n        ylab('Max Temp') +\n        ggtitle('Downtown Boulder Weather')\n```\n\n```{r}\nwea %>%\n        ggplot(aes(DATE,PRCP))+\n        geom_point() +\n        ylim(0,3)\n```\n\n\n## Bookings\n\n```{r}\nbk <- read_csv('/Users/Andy/Google Drive/boco-jail/bookings-with-transient-status.csv')\nglimpse(bk)\n```\n\n\n### Aggregate Monthly\n- I thought there would be more arrests in winter, but there doesn't seem to be that big of a difference.\n\n```{r}\nbk$month_ <- lubridate::month(bk$`Arrest Date`,label=TRUE)\nbk$year <- lubridate::year(bk$`Arrest Date`)\nbk %>% \n        filter(year %in% c(2011,2012,2013,2015,2015)) %>%\n        group_by(month_) %>%\n        count() %>%\n        ggplot(aes(month_,n))+\n        geom_point() +\n        geom_bar(stat='identity',aes(fill=month_))\n```\n\n\n### Aggregate by wkday\n\n\n\n### Try aggregating to daily level?\n```{r}\nbk %>% \n        filter(`Arrest Date`>\"2000-01-01\") %>%\n        group_by(`Arrest Date`) %>%\n        count() %>%\n        ggplot(aes(`Arrest Date`,n)) +\n        geom_point() +\n        ylim(0,60) +\n        geom_jitter() +\n        geom_smooth(method=\"lm\")\n        \n```\n\n\n## Relationship between arrests and weather\n\n```{r}\n\n```\n\n\n\n",
+    "created" : 1501880702860.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "65259607",
+    "id" : "6F9FD186",
+    "lastKnownWriteTime" : 1501883177,
+    "last_content_update" : 1501883177225,
+    "path" : "~/d4d/boco_homeless/wea_EDA_AndyP.Rmd",
+    "project_path" : "wea_EDA_AndyP.Rmd",
+    "properties" : {
+        "chunk_output_type" : "inline",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

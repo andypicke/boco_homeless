@@ -1,0 +1,100 @@
+---
+title: "EDA - Andy Pickering"
+output: 
+  html_notebook: 
+    toc: yes
+---
+
+# Title
+
+## Introduction
+
+```{r}
+suppressPackageStartupMessages(library(dplyr))
+library(readr)
+suppressPackageStartupMessages(library(lubridate))
+library(ggplot2)
+```
+
+
+## Weather
+
+```{r}
+wea <- read_csv('/Users/Andy/Google Drive/boco-jail/downtown-boulder-weather.csv')
+glimpse(wea)
+```
+
+
+```{r}
+wea$DATE <- lubridate::ymd(wea$DATE)
+head(wea)
+```
+
+
+```{r}
+wea %>%
+        ggplot(aes(DATE,TMAX))+
+        geom_point() +
+        ylab('Max Temp') +
+        ggtitle('Downtown Boulder Weather')
+```
+
+```{r}
+wea %>%
+        ggplot(aes(DATE,PRCP))+
+        geom_point() +
+        ylim(0,3)
+```
+
+
+## Bookings
+
+```{r}
+bk <- read_csv('/Users/Andy/Google Drive/boco-jail/bookings-with-transient-status.csv')
+glimpse(bk)
+```
+
+
+### Aggregate Monthly
+- I thought there would be more arrests in winter, but there doesn't seem to be that big of a difference.
+
+```{r}
+bk$month_ <- lubridate::month(bk$`Arrest Date`,label=TRUE)
+bk$year <- lubridate::year(bk$`Arrest Date`)
+bk %>% 
+        filter(year %in% c(2011,2012,2013,2015,2015)) %>%
+        group_by(month_) %>%
+        count() %>%
+        ggplot(aes(month_,n))+
+        geom_point() +
+        geom_bar(stat='identity',aes(fill=month_))
+```
+
+
+### Aggregate by wkday
+
+
+
+### Try aggregating to daily level?
+```{r}
+bk %>% 
+        filter(`Arrest Date`>"2000-01-01") %>%
+        group_by(`Arrest Date`) %>%
+        count() %>%
+        ggplot(aes(`Arrest Date`,n)) +
+        geom_point() +
+        ylim(0,60) +
+        geom_jitter() +
+        geom_smooth(method="lm")
+        
+```
+
+
+## Relationship between arrests and weather
+
+```{r}
+
+```
+
+
+
