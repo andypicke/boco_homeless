@@ -8,9 +8,13 @@ output:
     toc: yes
 ---
 
-# Title
 
 ## Introduction
+
+### (From Sam) Some of the interesting hypotheses we haven't explored yet are:
+- How does weather affect daily bookings? weather: downtown-boulder-weather.csv. bookings: bookings-with-transient-status.csv (you'll need to aggregate this one up to the daily level)
+- What proportion of jail bookings for housed/unhoused folks are for homelessness related charges? (by department? by year?) we pulled out charges that came from a list of antihomelessness ordinances compiled by some folks at Denver University, and marked them in the bookings dataset. If any of them were true, we marked the "antihomeless" column as true.
+
 
 ```{r}
 suppressPackageStartupMessages(library(dplyr))
@@ -20,7 +24,7 @@ library(ggplot2)
 ```
 
 
-## Weather
+# Weather
 
 ```{r}
 wea <- read_csv('/Users/Andy/Google Drive/boco-jail/downtown-boulder-weather.csv')
@@ -50,12 +54,58 @@ wea %>%
 ```
 
 
-## Bookings
+# Bookings
+
+### Some info from Sam on the *bookings-with-transient-status.csv* data:
+- These are bookings in Boulder County Jail.
+- Each row was an individual booking.
+- `boulder` means the arrest was made by Boulder PD
+- Column `transient` for whether someone was homeless or not.
+- I created indicator variables for a variety of antihomeless charges (that a local law school came up with). `antihomeless` is true if any of the antihomeless charges existed in the booking. So one source of error could be that if someone was arrested for an antihomeless charge AND a more serious offense, I still mark it as "antihomeless". 
+- I don't remember making `any_antihomeless` -- I suspect it's identical to `antihomeless` and introduced by accident
 
 ```{r}
 bk <- read_csv('/Users/Andy/Google Drive/boco-jail/bookings-with-transient-status.csv')
 glimpse(bk)
 ```
+
+### From Sam:
+- Each row was an individual booking, with a column `transient` for whether someone was homeless or not.
+- How many are transient?
+```{r}
+bk$transient = as.logical(bk$transient)
+mean(bk$transient,na.rm = TRUE)
+```
+
+- 'antihomeless' is if any charges were related to 'antihomeless charges'
+```{r}
+bk$antihomeless <- as.logical(bk$antihomeless)
+mean(bk$antihomeless)
+```
+
+### What percent of arrests were made by Boulder PD?
+```{r}
+bk$boulder <- as.logical(bk$boulder)
+mean(bk$boulder)
+```
+
+```{r}
+unique(bk$`Arresting Agency`)
+```
+
+
+### What agencies have the most arrests?
+```{r}
+bk$`Arresting Agency` <- as.factor(bk$`Arresting Agency`)
+bk %>% rename(arrest_agency=`Arresting Agency`) %>%
+        group_by(arrest_agency) %>%
+        count() %>%
+        arrange( desc(n) ) %>%
+        ggplot(aes(x=reorder(arrest_agency,n),y=n))+
+        geom_bar(stat='identity',aes(fill=arrest_agency)) +
+        coord_flip()
+```
+
 
 
 ### Aggregate Monthly

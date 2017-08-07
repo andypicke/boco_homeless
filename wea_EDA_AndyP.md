@@ -4,6 +4,11 @@
 
 ## Introduction
 
+### (From Sam) Some of the interesting hypotheses we haven't explored yet are:
+- How does weather affect daily bookings? weather: downtown-boulder-weather.csv. bookings: bookings-with-transient-status.csv (you'll need to aggregate this one up to the daily level)
+- What proportion of jail bookings for housed/unhoused folks are for homelessness related charges? (by department? by year?) we pulled out charges that came from a list of antihomelessness ordinances compiled by some folks at Denver University, and marked them in the bookings dataset. If any of them were true, we marked the "antihomeless" column as true.
+
+
 
 ```r
 suppressPackageStartupMessages(library(dplyr))
@@ -13,7 +18,7 @@ library(ggplot2)
 ```
 
 
-## Weather
+# Weather
 
 
 ```r
@@ -110,7 +115,15 @@ wea %>%
 ![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
 
 
-## Bookings
+# Bookings
+
+### Some info from Sam on the *bookings-with-transient-status.csv* data:
+- These are bookings in Boulder County Jail.
+- Each row was an individual booking.
+- `boulder` means the arrest was made by Boulder PD
+- Column `transient` for whether someone was homeless or not.
+- I created indicator variables for a variety of antihomeless charges (that a local law school came up with). `antihomeless` is true if any of the antihomeless charges existed in the booking. So one source of error could be that if someone was arrested for an antihomeless charge AND a more serious offense, I still mark it as "antihomeless". 
+- I don't remember making `any_antihomeless` -- I suspect it's identical to `antihomeless` and introduced by accident
 
 
 ```r
@@ -187,6 +200,42 @@ glimpse(bk)
 ## $ transient            <chr> "False", "False", "False", "False", "Fals...
 ```
 
+### From Sam:
+- Each row was an individual booking, with a column `transient` for whether someone was homeless or not.
+- How many are transient?
+
+```r
+bk$transient = as.logical(bk$transient)
+mean(bk$transient,na.rm = TRUE)
+```
+
+```
+## [1] 0.1306127
+```
+
+- 'antihomeless' is if any charges were related to 'antihomeless charges'
+
+```r
+bk$antihomeless <- as.logical(bk$antihomeless)
+mean(bk$antihomeless)
+```
+
+```
+## [1] 0.01324322
+```
+
+### What percent of arrests were made by Boulder PD?
+
+```r
+bk$boulder <- as.logical(bk$boulder)
+mean(bk$boulder)
+```
+
+```
+## [1] 0.06584026
+```
+
+
 
 ### Aggregate Monthly
 - I thought there would be more arrests in winter, but there doesn't seem to be that big of a difference.
@@ -204,7 +253,7 @@ bk %>%
         geom_bar(stat='identity',aes(fill=month_))
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
 
 ### Aggregate by wkday
@@ -225,7 +274,7 @@ bk %>%
         geom_smooth(method="lm")
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 
 ## Relationship between arrests and weather
