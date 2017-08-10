@@ -1,5 +1,5 @@
 ---
-title: "EDA - Andy Pickering"
+title: "BoCo EDA - Andy Pickering"
 output: 
   html_document: 
     keep_md: yes
@@ -9,35 +9,54 @@ output:
 ---
 
 
-## Introduction
+# Introduction
 
-### (From Sam) Some of the interesting hypotheses we haven't explored yet are:
-- How does weather affect daily bookings? weather: downtown-boulder-weather.csv. bookings: bookings-with-transient-status.csv (you'll need to aggregate this one up to the daily level)
-- What proportion of jail bookings for housed/unhoused folks are for homelessness related charges? (by department? by year?) we pulled out charges that came from a list of antihomelessness ordinances compiled by some folks at Denver University, and marked them in the bookings dataset. If any of them were true, we marked the "antihomeless" column as true.
+- This project is looking at patterns of homelessness-related arrests and possible relationship to weather in Boulder County. 
+- It was started by Sam Zhang, who gathered and merged the data: <https://github.com/samzhang111/boco-jail-analysis>.
+- Data is in a Google drive folder shared by Sam, which I have synced locally on my machine.
+- This analysis is in a github repository: <https://github.com/andypicke/boco_homeless>
+
+## Hypotheses To Explore
+- How does weather affect daily bookings? weather: *downtown-boulder-weather.csv*. bookings: *bookings-with-transient-status.csv* (you'll need to aggregate this one up to the daily level)
+- What proportion of jail bookings for housed/unhoused folks are for homelessness related charges? (by department? by year?) we pulled out charges that came from a list of antihomelessness ordinances compiled by some folks at Denver University, and marked them in the bookings dataset. If any of them were true, we marked the *antihomeless* column as true.
 
 
-```{r}
+
+
+# Weather
+
+- Add more details about where weather data comes from (on Sam's github?)
+- What is *SNWD*? Some kind of accumulated snowfall?
+- What are *WT01*,*WT02* etc.?
+- *SNOW* is missing data from about 2011-204?
+
+```{r Load Libraries}
 suppressPackageStartupMessages(library(dplyr))
 library(readr)
 suppressPackageStartupMessages(library(lubridate))
 library(ggplot2)
 ```
 
-
-# Weather
-
+## Load weather data
 ```{r}
-wea <- read_csv('/Users/Andy/Google Drive/boco-jail/downtown-boulder-weather.csv')
+wea <- read_csv('/Users/Andy/Google Drive/boco-jail/downtown-boulder-weather.csv',col_types = cols())
 glimpse(wea)
 ```
 
 
 ```{r}
+summary(wea)
+```
+
+
+```{r}
 wea$DATE <- lubridate::ymd(wea$DATE)
+wea <- wea %>% select( DATE,PRCP,SNOW,TMAX,TMIN)
 head(wea)
 ```
 
 
+## Plot temperature timeseries
 ```{r}
 wea %>%
         ggplot(aes(DATE,TMAX))+
@@ -46,6 +65,8 @@ wea %>%
         ggtitle('Downtown Boulder Weather')
 ```
 
+## Plot precipiation timeseries
+- I assume in inches?
 ```{r}
 wea %>%
         ggplot(aes(DATE,PRCP))+
@@ -54,55 +75,94 @@ wea %>%
 ```
 
 
+## Plot snow timeseries 
+- I assume this is daily snow fall in inches?
+- Looks like we are missing a chunk of snowfall data from about 2011-2014 (pretty sure it snowed during those years :) )
+```{r}
+wea %>%
+        ggplot(aes(DATE,SNOW))+
+        geom_point() +
+        ylim(0,3)
+```
+
+
+
+
+
+
+
+
+
 # Bookings
 
-### Some info from Sam on the *bookings-with-transient-status.csv* data:
-- These are bookings in Boulder County Jail.
-- Each row was an individual booking.
-- `boulder` means the arrest was made by Boulder PD
-- Column `transient` for whether someone was homeless or not.
-- I created indicator variables for a variety of antihomeless charges (that a local law school came up with). `antihomeless` is true if any of the antihomeless charges existed in the booking. So one source of error could be that if someone was arrested for an antihomeless charge AND a more serious offense, I still mark it as "antihomeless". 
-- I don't remember making `any_antihomeless` -- I suspect it's identical to `antihomeless` and introduced by accident
+Some info on the *bookings-with-transient-status.csv* data:
+- (Sam) These are bookings in Boulder County Jail only.
+- (Sam) Each row is an individual booking.
+- (Sam) `boulder` means the arrest was made by Boulder PD
+- (Sam) Column `transient` for whether someone was homeless or not.
+- (Sam) I created indicator variables for a variety of antihomeless charges (that a local law school came up with). `antihomeless` is true if any of the antihomeless charges existed in the booking. So one source of error could be that if someone was arrested for an antihomeless charge AND a more serious offense, I still mark it as "antihomeless". 
+- (Sam) I don't remember making `any_antihomeless` -- I suspect it's identical to `antihomeless` and introduced by accident
+- (Andy) There are two *Booking Time* columns? I will use *booking_time* for now, as it seems better.
+- (Andy) What are *location*s? Is that where they were booked?
 
+## Load bookings data
 ```{r}
-bk <- read_csv('/Users/Andy/Google Drive/boco-jail/bookings-with-transient-status.csv')
+bk <- read_csv('/Users/Andy/Google Drive/boco-jail/bookings-with-transient-status.csv',col_types = cols())
 glimpse(bk)
 ```
 
-### From Sam:
-- Each row was an individual booking, with a column `transient` for whether someone was homeless or not.
-- How many are transient?
+
+## Let's clean it up a little
 ```{r}
-bk$transient = as.logical(bk$transient)
-mean(bk$transient,na.rm = TRUE)
+bk <- bk %>% select(-`Booking Time`)
+names(bk) <- tolower(names(bk))
+names(bk) <- gsub(' ','_',names(bk))
+bk$arresting_agency <- as.factor(bk$arresting_agency)
+
+to_log <- function(a_col){
+        as.logical(a_col)
+}
+cols_to_log <- c('camping','boulder','urination','vehicle_as_residence','public_obstruct','public_trespass','begging','antihomeless','smoking','any_antihomeless','transient')
+bk[cols_to_log] <- lapply(bk[cols_to_log],to_log)
+
+glimpse(bk)
 ```
 
-- 'antihomeless' is if any charges were related to 'antihomeless charges'
+
+
+
+### What percent of arrestees are transient?
 ```{r}
-bk$antihomeless <- as.logical(bk$antihomeless)
-mean(bk$antihomeless)
+
+mean(bk$transient,na.rm = TRUE)*100
+```
+
+### What percent of arrests are 'antihomeless' (true if any charges were related to 'antihomeless charges')
+```{r}
+
+mean(bk$antihomeless)*100
 ```
 
 ### What percent of arrests were made by Boulder PD?
 ```{r}
-bk$boulder <- as.logical(bk$boulder)
-mean(bk$boulder)
+mean(bk$boulder)*100
 ```
 
+###
 ```{r}
-unique(bk$`Arresting Agency`)
+levels(bk$arresting_agency)
 ```
 
 
 ### What agencies have the most arrests?
 ```{r}
-bk$`Arresting Agency` <- as.factor(bk$`Arresting Agency`)
-bk %>% rename(arrest_agency=`Arresting Agency`) %>%
-        group_by(arrest_agency) %>%
-        count() %>%
+
+bk %>%
+        group_by(arresting_agency) %>%
+        tally() %>%
         arrange( desc(n) ) %>%
-        ggplot(aes(x=reorder(arrest_agency,n),y=n))+
-        geom_bar(stat='identity',aes(fill=arrest_agency)) +
+        ggplot(aes(x=reorder(arresting_agency,n),y=n))+
+        geom_bar(stat='identity',aes(fill=arresting_agency)) +
         coord_flip()
 ```
 
@@ -112,15 +172,16 @@ bk %>% rename(arrest_agency=`Arresting Agency`) %>%
 - I thought there would be more arrests in winter, but there doesn't seem to be that big of a difference.
 
 ```{r}
-bk$month_ <- lubridate::month(bk$`Arrest Date`,label=TRUE)
-bk$year <- lubridate::year(bk$`Arrest Date`)
+bk$month_ <- lubridate::month(bk$arrest_date,label=TRUE)
+bk$year <- lubridate::year(bk$arrest_date)
 bk %>% 
         filter(year %in% c(2011,2012,2013,2015,2015)) %>%
-        group_by(month_) %>%
-        count() %>%
+        group_by(year,month_) %>%
+        tally() %>%
         ggplot(aes(month_,n))+
         geom_point() +
-        geom_bar(stat='identity',aes(fill=month_))
+        geom_bar(stat='identity',aes(fill=month_)) +
+        facet_wrap(~year)
 ```
 
 
@@ -129,22 +190,24 @@ bk %>%
 
 
 ### Try aggregating to daily level?
+- Looks like daily number of arrests is decreasing over time? 
+- Not sure if actual, or something to do with how data is recorded.
 ```{r}
 bk %>% 
-        filter(`Arrest Date`>"2000-01-01") %>%
-        group_by(`Arrest Date`) %>%
-        count() %>%
-        ggplot(aes(`Arrest Date`,n)) +
-        geom_point() +
+        filter(arrest_date>"2000-01-01") %>%
+        group_by(arrest_date) %>%
+        tally() %>%
+        ggplot(aes(arrest_date,n)) +
+        geom_point(alpha=0.2) +
         ylim(0,60) +
-        geom_jitter() +
         geom_smooth(method="lm")
         
 ```
 
 
 ## Relationship between arrests and weather
-
+- Scatter plot arrests vs weather variables
+- Fit linear regressions between arrests and weather
 ```{r}
 
 ```
