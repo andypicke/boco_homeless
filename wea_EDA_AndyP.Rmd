@@ -50,8 +50,9 @@ summary(wea)
 
 
 ```{r}
-wea$DATE <- lubridate::ymd(wea$DATE)
-wea <- wea %>% select( DATE,PRCP,SNOW,TMAX,TMIN)
+names(wea) <- tolower(names(wea))
+wea$date <- lubridate::ymd(wea$date)
+wea <- wea %>% select( date,prcp,snow,tmax,tmin)
 head(wea)
 ```
 
@@ -59,7 +60,7 @@ head(wea)
 ## Plot temperature timeseries
 ```{r}
 wea %>%
-        ggplot(aes(DATE,TMAX))+
+        ggplot(aes(date,tmax))+
         geom_point() +
         ylab('Max Temp') +
         ggtitle('Downtown Boulder Weather')
@@ -69,7 +70,7 @@ wea %>%
 - I assume in inches?
 ```{r}
 wea %>%
-        ggplot(aes(DATE,PRCP))+
+        ggplot(aes(date,prcp))+
         geom_point() +
         ylim(0,3)
 ```
@@ -80,7 +81,7 @@ wea %>%
 - Looks like we are missing a chunk of snowfall data from about 2011-2014 (pretty sure it snowed during those years :) )
 ```{r}
 wea %>%
-        ggplot(aes(DATE,SNOW))+
+        ggplot(aes(date,snow))+
         geom_point() +
         ylim(0,3)
 ```
@@ -96,6 +97,8 @@ wea %>%
 # Bookings
 
 Some info on the *bookings-with-transient-status.csv* data:
+- *fta* is "Failure to Appear"
+- *ftc* is "Failure to Comply"
 - (Sam) These are bookings in Boulder County Jail only.
 - (Sam) Each row is an individual booking.
 - (Sam) `boulder` means the arrest was made by Boulder PD
@@ -104,6 +107,7 @@ Some info on the *bookings-with-transient-status.csv* data:
 - (Sam) I don't remember making `any_antihomeless` -- I suspect it's identical to `antihomeless` and introduced by accident
 - (Andy) There are two *Booking Time* columns? I will use *booking_time* for now, as it seems better.
 - (Andy) What are *location*s? Is that where they were booked?
+- (Andy) *Booked* and *booking_time* appear to be duplicates?
 
 ## Load bookings data
 ```{r}
@@ -114,16 +118,38 @@ glimpse(bk)
 
 ## Let's clean it up a little
 ```{r}
+
+
+# 'Booking Time' appears to be a duplicate/bad column
 bk <- bk %>% select(-`Booking Time`)
+
+# make columns names lowercase and remove spaces
 names(bk) <- tolower(names(bk))
 names(bk) <- gsub(' ','_',names(bk))
-bk$arresting_agency <- as.factor(bk$arresting_agency)
 
+# some vars make more sense as factors
+bk$arresting_agency <- as.factor(bk$arresting_agency)
+bk$location <- as.factor(bk$location)
+
+# add wkday,month,year so we can aggregate by those
+bk$wkday <- lubridate::wday(bk$booking_date,label=TRUE)
+bk$month_ <- lubridate::month(bk$arrest_date,label=TRUE)
+bk$year <- lubridate::year(bk$arrest_date)
+
+# modern reporting seems to start in 2000 (yearly totals go from less 100 before 2000, to order of 10,000 starting w/ 2000). Keep only 2000 on here.
+bk <- bk %>% filter(year>=2000)
+
+
+bk$booked_date <- lubridate::date(bk$booked)
+
+# a bunch of vars should be logical
 to_log <- function(a_col){
         as.logical(a_col)
 }
-cols_to_log <- c('camping','boulder','urination','vehicle_as_residence','public_obstruct','public_trespass','begging','antihomeless','smoking','any_antihomeless','transient')
+cols_to_log <- c('camping','boulder','urination','vehicle_as_residence','public_obstruct','public_trespass','begging','antihomeless','smoking','any_antihomeless','transient','fta','ftc')
 bk[cols_to_log] <- lapply(bk[cols_to_log],to_log)
+
+
 
 glimpse(bk)
 ```
@@ -172,8 +198,6 @@ bk %>%
 - I thought there would be more arrests in winter, but there doesn't seem to be that big of a difference.
 
 ```{r}
-bk$month_ <- lubridate::month(bk$arrest_date,label=TRUE)
-bk$year <- lubridate::year(bk$arrest_date)
 bk %>% 
         filter(year %in% c(2011,2012,2013,2015,2015)) %>%
         group_by(year,month_) %>%
@@ -187,7 +211,42 @@ bk %>%
 
 ### Aggregate by wkday
 
+```{r}
+bk %>%
+        filter(!is.na(wkday)) %>%
+        group_by(wkday) %>%
+        tally() %>%
+        ggplot( aes(wkday,n)) +
+        geom_col(aes(fill=wkday)) +
+        ggtitle('Total Arrests By Day, for ALL data')
+```
 
+### By weekday, for separate years
+```{r}
+bk %>%
+        filter(!is.na(wkday)) %>%
+        filter(year>1999) %>%
+        group_by(year,wkday) %>%
+        tally() %>%
+        ggplot( aes(wkday,n)) +
+        geom_col(aes(fill=wkday)) +
+        facet_wrap(~year) +
+        ggtitle('Total Arrests By Day, for each year')
+```
+
+
+### By weekday, for separate months
+```{r}
+bk %>%
+        filter(!is.na(wkday)) %>%
+        filter(year>1999) %>%
+        group_by(month_,wkday) %>%
+        tally() %>%
+        ggplot( aes(wkday,n)) +
+        geom_col(aes(fill=wkday)) +
+        facet_wrap(~month_) +
+        ggtitle('Total Arrests By Day, for each month, includes all years')
+```
 
 ### Try aggregating to daily level?
 - Looks like daily number of arrests is decreasing over time? 
@@ -205,12 +264,81 @@ bk %>%
 ```
 
 
-## Relationship between arrests and weather
-- Scatter plot arrests vs weather variables
-- Fit linear regressions between arrests and weather
-```{r}
+# Relationship between arrests and weather
 
+## Let's merge the booking and weather data first
+
+```{r}
+bk_wea <- left_join(bk,wea,by=c('arrest_date'='date'))
+glimpse(bk_wea)
 ```
 
+## Scatter plot daily arrests vs weather variables
+- There doesn't seem to be much of a relationship between daily # arrests and temperature. 
+```{r}
+bk %>%
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        left_join(wea,by=c('arrest_date'='date')) %>%
+        ggplot(aes(tmin,n)) +
+        geom_point() +
+        geom_smooth(method = 'lm')
+```
+
+
+
+## Scatter plot daily _transient_ arrests vs weather variables
+- Not too much for transient only either.
+```{r}
+bk%>%
+        filter(transient==TRUE) %>% 
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        left_join(wea,by=c('arrest_date'='date')) %>%
+        ggplot(aes(tmin,n)) +
+        geom_point() +
+        geom_smooth(method = 'lm')
+```
+
+
+## Scatter plot daily _antihomeless_ arrests vs weather variables
+- 
+
+```{r}
+bk%>%
+        filter(antihomeless==TRUE) %>% 
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        left_join(wea,by=c('arrest_date'='date')) %>%
+        ggplot(aes(tmin,n)) +
+        geom_point() +
+        geom_smooth(method = 'lm')
+```
+
+## Try a logistic regression of antihomeless arrest as function of temperature, precip, etc.?
+
+
+## Look at individual years?
+```{r}
+bk_wea %>%
+        filter(year==2002) %>% 
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        left_join(wea,by=c('arrest_date'='date')) %>%
+        ggplot(aes(tmin,n)) +
+        geom_point() +
+        geom_smooth(method = 'lm')
+```
+
+
+```{r}
+bk %>% 
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        left_join(wea,by=c('arrest_date'='date')) %>% 
+        ggplot(aes(arrest_date,tmin)) +
+        geom_point() +
+        geom_point(aes(x=arrest_date,y=n),color='red')
+```
 
 

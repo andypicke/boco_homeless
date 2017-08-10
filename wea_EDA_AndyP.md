@@ -90,14 +90,15 @@ summary(wea)
 
 
 ```r
-wea$DATE <- lubridate::ymd(wea$DATE)
-wea <- wea %>% select( DATE,PRCP,SNOW,TMAX,TMIN)
+names(wea) <- tolower(names(wea))
+wea$date <- lubridate::ymd(wea$date)
+wea <- wea %>% select( date,prcp,snow,tmax,tmin)
 head(wea)
 ```
 
 ```
 ## # A tibble: 6 x 5
-##         DATE  PRCP  SNOW  TMAX  TMIN
+##         date  prcp  snow  tmax  tmin
 ##       <date> <dbl> <dbl> <dbl> <dbl>
 ## 1 2000-01-01  0.00   0.0    54    29
 ## 2 2000-01-02  0.00   0.0    40    22
@@ -112,7 +113,7 @@ head(wea)
 
 ```r
 wea %>%
-        ggplot(aes(DATE,TMAX))+
+        ggplot(aes(date,tmax))+
         geom_point() +
         ylab('Max Temp') +
         ggtitle('Downtown Boulder Weather')
@@ -129,7 +130,7 @@ wea %>%
 
 ```r
 wea %>%
-        ggplot(aes(DATE,PRCP))+
+        ggplot(aes(date,prcp))+
         geom_point() +
         ylim(0,3)
 ```
@@ -147,7 +148,7 @@ wea %>%
 
 ```r
 wea %>%
-        ggplot(aes(DATE,SNOW))+
+        ggplot(aes(date,snow))+
         geom_point() +
         ylim(0,3)
 ```
@@ -169,6 +170,8 @@ wea %>%
 # Bookings
 
 Some info on the *bookings-with-transient-status.csv* data:
+- *fta* is "Failure to Appear"
+- *ftc* is "Failure to Comply"
 - (Sam) These are bookings in Boulder County Jail only.
 - (Sam) Each row is an individual booking.
 - (Sam) `boulder` means the arrest was made by Boulder PD
@@ -177,6 +180,7 @@ Some info on the *bookings-with-transient-status.csv* data:
 - (Sam) I don't remember making `any_antihomeless` -- I suspect it's identical to `antihomeless` and introduced by accident
 - (Andy) There are two *Booking Time* columns? I will use *booking_time* for now, as it seems better.
 - (Andy) What are *location*s? Is that where they were booked?
+- (Andy) *Booked* and *booking_time* appear to be duplicates?
 
 ## Load bookings data
 
@@ -239,36 +243,56 @@ glimpse(bk)
 ## Let's clean it up a little
 
 ```r
+# 'Booking Time' appears to be a duplicate/bad column
 bk <- bk %>% select(-`Booking Time`)
+
+# make columns names lowercase and remove spaces
 names(bk) <- tolower(names(bk))
 names(bk) <- gsub(' ','_',names(bk))
-bk$arresting_agency <- as.factor(bk$arresting_agency)
 
+# some vars make more sense as factors
+bk$arresting_agency <- as.factor(bk$arresting_agency)
+bk$location <- as.factor(bk$location)
+
+# add wkday,month,year so we can aggregate by those
+bk$wkday <- lubridate::wday(bk$booking_date,label=TRUE)
+bk$month_ <- lubridate::month(bk$arrest_date,label=TRUE)
+bk$year <- lubridate::year(bk$arrest_date)
+
+# modern reporting seems to start in 2000 (yearly totals go from less 100 before 2000, to order of 10,000 starting w/ 2000). Keep only 2000 on here.
+bk <- bk %>% filter(year>=2000)
+
+
+bk$booked_date <- lubridate::date(bk$booked)
+
+# a bunch of vars should be logical
 to_log <- function(a_col){
         as.logical(a_col)
 }
-cols_to_log <- c('camping','boulder','urination','vehicle_as_residence','public_obstruct','public_trespass','begging','antihomeless','smoking','any_antihomeless','transient')
+cols_to_log <- c('camping','boulder','urination','vehicle_as_residence','public_obstruct','public_trespass','begging','antihomeless','smoking','any_antihomeless','transient','fta','ftc')
 bk[cols_to_log] <- lapply(bk[cols_to_log],to_log)
+
+
 
 glimpse(bk)
 ```
 
 ```
-## Observations: 167,633
-## Variables: 29
-## $ name                 <chr> "HOOD,AARON JAY", "LAWYER,KENNETH A", "AG...
-## $ booked               <dttm> 2000-01-01 02:12:00, 2000-01-01 04:01:00...
-## $ location             <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
-## $ dob                  <date> 1975-10-08, 1958-09-29, 1972-11-14, 1953...
+## Observations: 163,939
+## Variables: 33
+## $ name                 <chr> "LAWYER,KENNETH A", "COPELAND,MARK WILLIA...
+## $ booked               <dttm> 2000-01-01 04:01:00, 2000-01-01 03:39:00...
+## $ location             <fctr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, ...
+## $ dob                  <date> 1958-09-29, 1953-01-27, 1948-01-25, 1977...
 ## $ race                 <chr> "W", "W", "W", "W", "W", "W", "W", "W", "...
-## $ sex                  <chr> "M", "M", "M", "M", "M", "M", "M", "M", "...
-## $ case_no              <int> 991126052, 991001313, 991126053, 99103193...
-## $ arresting_agency     <fctr> UNIVERSITY OF COLORADO, JAIL MITTS ONLY,...
-## $ arrest_date          <date> 1999-12-31, 2000-01-16, 1999-12-31, 1999...
+## $ sex                  <chr> "M", "M", "M", "F", "M", "M", "M", "F", "...
+## $ case_no              <int> 991001313, 1089421, 1031978, 1103574, 5, ...
+## $ arresting_agency     <fctr> JAIL MITTS ONLY, LAFAYETTE PD, BOULDER P...
+## $ arrest_date          <date> 2000-01-16, 2000-01-01, 2000-01-01, 2000...
 ## $ camping              <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
-## $ fta                  <chr> "True", "False", "False", "False", "False...
-## $ ftc                  <chr> "False", "False", "False", "False", "Fals...
-## $ booking_time         <dttm> 2000-01-01 02:12:00, 2000-01-01 04:01:00...
+## $ fta                  <lgl> FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, ...
+## $ ftc                  <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ booking_time         <dttm> 2000-01-01 04:01:00, 2000-01-01 03:39:00...
 ## $ boulder              <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
 ## $ urination            <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
 ## $ vehicle_as_residence <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
@@ -285,6 +309,10 @@ glimpse(bk)
 ## $ booking_date         <date> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, ...
 ## $ facility             <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
 ## $ transient            <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ wkday                <ord> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ month_               <ord> Jan, Jan, Jan, Jan, Jan, Jan, Jan, Jan, J...
+## $ year                 <dbl> 2000, 2000, 2000, 2000, 2000, 2000, 2000,...
+## $ booked_date          <date> 2000-01-01, 2000-01-01, 2000-01-01, 2000...
 ```
 
 
@@ -297,7 +325,7 @@ mean(bk$transient,na.rm = TRUE)*100
 ```
 
 ```
-## [1] 13.06127
+## [1] 13.05669
 ```
 
 ### What percent of arrests are 'antihomeless' (true if any charges were related to 'antihomeless charges')
@@ -307,7 +335,7 @@ mean(bk$antihomeless)*100
 ```
 
 ```
-## [1] 1.324322
+## [1] 1.317563
 ```
 
 ### What percent of arrests were made by Boulder PD?
@@ -317,7 +345,7 @@ mean(bk$boulder)*100
 ```
 
 ```
-## [1] 6.584026
+## [1] 6.589646
 ```
 
 ###
@@ -360,8 +388,6 @@ bk %>%
 
 
 ```r
-bk$month_ <- lubridate::month(bk$arrest_date,label=TRUE)
-bk$year <- lubridate::year(bk$arrest_date)
 bk %>% 
         filter(year %in% c(2011,2012,2013,2015,2015)) %>%
         group_by(year,month_) %>%
@@ -378,6 +404,50 @@ bk %>%
 ### Aggregate by wkday
 
 
+```r
+bk %>%
+        filter(!is.na(wkday)) %>%
+        group_by(wkday) %>%
+        tally() %>%
+        ggplot( aes(wkday,n)) +
+        geom_col(aes(fill=wkday)) +
+        ggtitle('Total Arrests By Day, for ALL data')
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+
+### By weekday, for separate years
+
+```r
+bk %>%
+        filter(!is.na(wkday)) %>%
+        filter(year>1999) %>%
+        group_by(year,wkday) %>%
+        tally() %>%
+        ggplot( aes(wkday,n)) +
+        geom_col(aes(fill=wkday)) +
+        facet_wrap(~year) +
+        ggtitle('Total Arrests By Day, for each year')
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+
+
+### By weekday, for separate months
+
+```r
+bk %>%
+        filter(!is.na(wkday)) %>%
+        filter(year>1999) %>%
+        group_by(month_,wkday) %>%
+        tally() %>%
+        ggplot( aes(wkday,n)) +
+        geom_col(aes(fill=wkday)) +
+        facet_wrap(~month_) +
+        ggtitle('Total Arrests By Day, for each month, includes all years')
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
 
 ### Try aggregating to daily level?
 - Looks like daily number of arrests is decreasing over time? 
@@ -394,13 +464,170 @@ bk %>%
         geom_smooth(method="lm")
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
 
 
-## Relationship between arrests and weather
-- Scatter plot arrests vs weather variables
-- Fit linear regressions between arrests and weather
+# Relationship between arrests and weather
+
+## Let's merge the booking and weather data first
 
 
+```r
+bk_wea <- left_join(bk,wea,by=c('arrest_date'='date'))
+glimpse(bk_wea)
+```
+
+```
+## Observations: 163,939
+## Variables: 37
+## $ name                 <chr> "LAWYER,KENNETH A", "COPELAND,MARK WILLIA...
+## $ booked               <dttm> 2000-01-01 04:01:00, 2000-01-01 03:39:00...
+## $ location             <fctr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, ...
+## $ dob                  <date> 1958-09-29, 1953-01-27, 1948-01-25, 1977...
+## $ race                 <chr> "W", "W", "W", "W", "W", "W", "W", "W", "...
+## $ sex                  <chr> "M", "M", "M", "F", "M", "M", "M", "F", "...
+## $ case_no              <int> 991001313, 1089421, 1031978, 1103574, 5, ...
+## $ arresting_agency     <fctr> JAIL MITTS ONLY, LAFAYETTE PD, BOULDER P...
+## $ arrest_date          <date> 2000-01-16, 2000-01-01, 2000-01-01, 2000...
+## $ camping              <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ fta                  <lgl> FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, ...
+## $ ftc                  <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ booking_time         <dttm> 2000-01-01 04:01:00, 2000-01-01 03:39:00...
+## $ boulder              <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ urination            <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ vehicle_as_residence <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ public_obstruct      <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ public_trespass      <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ begging              <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ antihomeless         <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ smoking              <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ any_antihomeless     <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ address              <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ city                 <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ state                <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ zip_code             <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ booking_date         <date> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, ...
+## $ facility             <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ transient            <lgl> FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,...
+## $ wkday                <ord> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ month_               <ord> Jan, Jan, Jan, Jan, Jan, Jan, Jan, Jan, J...
+## $ year                 <dbl> 2000, 2000, 2000, 2000, 2000, 2000, 2000,...
+## $ booked_date          <date> 2000-01-01, 2000-01-01, 2000-01-01, 2000...
+## $ prcp                 <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,...
+## $ snow                 <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,...
+## $ tmax                 <dbl> 49, 54, 54, 54, 54, 54, 54, 51, 54, 54, 5...
+## $ tmin                 <dbl> 22, 29, 29, 29, 29, 29, 29, 35, 29, 29, 2...
+```
+
+## Scatter plot daily arrests vs weather variables
+- There doesn't seem to be much of a relationship between daily # arrests and temperature. 
+
+```r
+bk %>%
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        left_join(wea,by=c('arrest_date'='date')) %>%
+        ggplot(aes(tmin,n)) +
+        geom_point() +
+        geom_smooth(method = 'lm')
+```
+
+```
+## Warning: Removed 7 rows containing non-finite values (stat_smooth).
+```
+
+```
+## Warning: Removed 7 rows containing missing values (geom_point).
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
+
+
+
+## Scatter plot daily _transient_ arrests vs weather variables
+- Not too much for transient only either.
+
+```r
+bk%>%
+        filter(transient==TRUE) %>% 
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        left_join(wea,by=c('arrest_date'='date')) %>%
+        ggplot(aes(tmin,n)) +
+        geom_point() +
+        geom_smooth(method = 'lm')
+```
+
+```
+## Warning: Removed 7 rows containing non-finite values (stat_smooth).
+```
+
+```
+## Warning: Removed 7 rows containing missing values (geom_point).
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
+
+
+## Scatter plot daily _antihomeless_ arrests vs weather variables
+- 
+
+
+```r
+bk%>%
+        filter(antihomeless==TRUE) %>% 
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        left_join(wea,by=c('arrest_date'='date')) %>%
+        ggplot(aes(tmin,n)) +
+        geom_point() +
+        geom_smooth(method = 'lm')
+```
+
+```
+## Warning: Removed 3 rows containing non-finite values (stat_smooth).
+```
+
+```
+## Warning: Removed 3 rows containing missing values (geom_point).
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
+
+## Try a logistic regression of antihomeless arrest as function of temperature, precip, etc.?
+
+
+## Look at individual years?
+
+```r
+bk_wea %>%
+        filter(year==2002) %>% 
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        left_join(wea,by=c('arrest_date'='date')) %>%
+        ggplot(aes(tmin,n)) +
+        geom_point() +
+        geom_smooth(method = 'lm')
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
+
+
+
+```r
+bk %>% 
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        left_join(wea,by=c('arrest_date'='date')) %>% 
+        ggplot(aes(arrest_date,tmin)) +
+        geom_point() +
+        geom_point(aes(x=arrest_date,y=n),color='red')
+```
+
+```
+## Warning: Removed 7 rows containing missing values (geom_point).
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
 
 
