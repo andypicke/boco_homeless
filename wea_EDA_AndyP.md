@@ -253,6 +253,7 @@ names(bk) <- gsub(' ','_',names(bk))
 # some vars make more sense as factors
 bk$arresting_agency <- as.factor(bk$arresting_agency)
 bk$location <- as.factor(bk$location)
+bk$race <- as.factor(bk$race)
 
 # add wkday,month,year so we can aggregate by those
 bk$wkday <- lubridate::wday(bk$booking_date,label=TRUE)
@@ -272,6 +273,7 @@ to_log <- function(a_col){
 cols_to_log <- c('camping','boulder','urination','vehicle_as_residence','public_obstruct','public_trespass','begging','antihomeless','smoking','any_antihomeless','transient','fta','ftc')
 bk[cols_to_log] <- lapply(bk[cols_to_log],to_log)
 
+# clean up some bad age values?
 
 
 glimpse(bk)
@@ -284,7 +286,7 @@ glimpse(bk)
 ## $ booked               <dttm> 2000-01-01 04:01:00, 2000-01-01 03:39:00...
 ## $ location             <fctr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, ...
 ## $ dob                  <date> 1958-09-29, 1953-01-27, 1948-01-25, 1977...
-## $ race                 <chr> "W", "W", "W", "W", "W", "W", "W", "W", "...
+## $ race                 <fctr> W, W, W, W, W, W, W, W, W, W, W, W, W, W...
 ## $ sex                  <chr> "M", "M", "M", "F", "M", "M", "M", "F", "...
 ## $ case_no              <int> 991001313, 1089421, 1031978, 1103574, 5, ...
 ## $ arresting_agency     <fctr> JAIL MITTS ONLY, LAFAYETTE PD, BOULDER P...
@@ -315,6 +317,26 @@ glimpse(bk)
 ## $ booked_date          <date> 2000-01-01, 2000-01-01, 2000-01-01, 2000...
 ```
 
+
+### Distribution of ages
+- some bad data points? (ie age=-1 or age=133)
+
+```r
+ages <- floor(lubridate::interval(bk$dob,bk$arrest_date)/years(1))
+#ages
+hist(ages)
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+
+```r
+summary(ages)
+```
+
+```
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    -1.0    22.0    29.0    31.9    40.0   133.0
+```
 
 
 
@@ -379,8 +401,20 @@ bk %>%
         coord_flip()
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
+### Number of arrests by race
+
+```r
+bk %>% group_by(race) %>% 
+        tally() %>% 
+        arrange(desc(n)) %>% 
+        ggplot(aes(x=reorder(race,n),y=n))+
+        geom_bar(stat='identity',aes(fill=race)) +
+        coord_flip()
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
 
 
 ### Aggregate Monthly
@@ -398,7 +432,7 @@ bk %>%
         facet_wrap(~year)
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 
 ### Aggregate by wkday
@@ -414,7 +448,7 @@ bk %>%
         ggtitle('Total Arrests By Day, for ALL data')
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
 
 ### By weekday, for separate years
 
@@ -430,7 +464,7 @@ bk %>%
         ggtitle('Total Arrests By Day, for each year')
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
 
 
 ### By weekday, for separate months
@@ -447,7 +481,7 @@ bk %>%
         ggtitle('Total Arrests By Day, for each month, includes all years')
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
 ### Try aggregating to daily level?
 - Looks like daily number of arrests is decreasing over time? 
@@ -464,7 +498,7 @@ bk %>%
         geom_smooth(method="lm")
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
 
 
 # Relationship between arrests and weather
@@ -484,7 +518,7 @@ glimpse(bk_wea)
 ## $ booked               <dttm> 2000-01-01 04:01:00, 2000-01-01 03:39:00...
 ## $ location             <fctr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, ...
 ## $ dob                  <date> 1958-09-29, 1953-01-27, 1948-01-25, 1977...
-## $ race                 <chr> "W", "W", "W", "W", "W", "W", "W", "W", "...
+## $ race                 <fctr> W, W, W, W, W, W, W, W, W, W, W, W, W, W...
 ## $ sex                  <chr> "M", "M", "M", "F", "M", "M", "M", "F", "...
 ## $ case_no              <int> 991001313, 1089421, 1031978, 1103574, 5, ...
 ## $ arresting_agency     <fctr> JAIL MITTS ONLY, LAFAYETTE PD, BOULDER P...
@@ -528,19 +562,19 @@ bk %>%
         tally() %>% 
         left_join(wea,by=c('arrest_date'='date')) %>%
         ggplot(aes(tmin,n)) +
-        geom_point() +
+        geom_hex() +
         geom_smooth(method = 'lm')
+```
+
+```
+## Warning: Removed 7 rows containing non-finite values (stat_binhex).
 ```
 
 ```
 ## Warning: Removed 7 rows containing non-finite values (stat_smooth).
 ```
 
-```
-## Warning: Removed 7 rows containing missing values (geom_point).
-```
-
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
 
 
 
@@ -554,19 +588,19 @@ bk%>%
         tally() %>% 
         left_join(wea,by=c('arrest_date'='date')) %>%
         ggplot(aes(tmin,n)) +
-        geom_point() +
+        geom_hex() +
         geom_smooth(method = 'lm')
+```
+
+```
+## Warning: Removed 7 rows containing non-finite values (stat_binhex).
 ```
 
 ```
 ## Warning: Removed 7 rows containing non-finite values (stat_smooth).
 ```
 
-```
-## Warning: Removed 7 rows containing missing values (geom_point).
-```
-
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
 
 
 ## Scatter plot daily _antihomeless_ arrests vs weather variables
@@ -592,7 +626,7 @@ bk%>%
 ## Warning: Removed 3 rows containing missing values (geom_point).
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
 
 ## Try a logistic regression of antihomeless arrest as function of temperature, precip, etc.?
 
@@ -610,7 +644,7 @@ bk_wea %>%
         geom_smooth(method = 'lm')
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
 
 
 
@@ -628,6 +662,6 @@ bk %>%
 ## Warning: Removed 7 rows containing missing values (geom_point).
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-26-1.png)<!-- -->
 
 

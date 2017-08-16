@@ -161,7 +161,7 @@ glimpse(bk)
 - some bad data points? (ie age=-1 or age=133)
 ```{r}
 ages <- floor(lubridate::interval(bk$dob,bk$arrest_date)/years(1))
-ages
+#ages
 hist(ages)
 summary(ages)
 ```
