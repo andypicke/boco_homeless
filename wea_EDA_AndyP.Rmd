@@ -130,6 +130,7 @@ names(bk) <- gsub(' ','_',names(bk))
 # some vars make more sense as factors
 bk$arresting_agency <- as.factor(bk$arresting_agency)
 bk$location <- as.factor(bk$location)
+bk$race <- as.factor(bk$race)
 
 # add wkday,month,year so we can aggregate by those
 bk$wkday <- lubridate::wday(bk$booking_date,label=TRUE)
@@ -149,11 +150,21 @@ to_log <- function(a_col){
 cols_to_log <- c('camping','boulder','urination','vehicle_as_residence','public_obstruct','public_trespass','begging','antihomeless','smoking','any_antihomeless','transient','fta','ftc')
 bk[cols_to_log] <- lapply(bk[cols_to_log],to_log)
 
+# clean up some bad age values?
 
 
 glimpse(bk)
 ```
 
+
+### Distribution of ages
+- some bad data points? (ie age=-1 or age=133)
+```{r}
+ages <- floor(lubridate::interval(bk$dob,bk$arrest_date)/years(1))
+ages
+hist(ages)
+summary(ages)
+```
 
 
 
@@ -192,6 +203,15 @@ bk %>%
         coord_flip()
 ```
 
+### Number of arrests by race
+```{r}
+bk %>% group_by(race) %>% 
+        tally() %>% 
+        arrange(desc(n)) %>% 
+        ggplot(aes(x=reorder(race,n),y=n))+
+        geom_bar(stat='identity',aes(fill=race)) +
+        coord_flip()
+```
 
 
 ### Aggregate Monthly
@@ -281,7 +301,7 @@ bk %>%
         tally() %>% 
         left_join(wea,by=c('arrest_date'='date')) %>%
         ggplot(aes(tmin,n)) +
-        geom_point() +
+        geom_hex() +
         geom_smooth(method = 'lm')
 ```
 
@@ -296,7 +316,7 @@ bk%>%
         tally() %>% 
         left_join(wea,by=c('arrest_date'='date')) %>%
         ggplot(aes(tmin,n)) +
-        geom_point() +
+        geom_hex() +
         geom_smooth(method = 'lm')
 ```
 
