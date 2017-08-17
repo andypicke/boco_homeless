@@ -22,73 +22,12 @@ output:
 
 
 
-
-# Weather
-
-- Add more details about where weather data comes from (on Sam's github?)
-- What is *SNWD*? Some kind of accumulated snowfall?
-- What are *WT01*,*WT02* etc.?
-- *SNOW* is missing data from about 2011-204?
-
 ```{r Load Libraries}
 suppressPackageStartupMessages(library(dplyr))
 library(readr)
 suppressPackageStartupMessages(library(lubridate))
 library(ggplot2)
 ```
-
-## Load weather data
-```{r}
-wea <- read_csv('/Users/Andy/Google Drive/boco-jail/downtown-boulder-weather.csv',col_types = cols())
-glimpse(wea)
-```
-
-
-```{r}
-summary(wea)
-```
-
-
-```{r}
-names(wea) <- tolower(names(wea))
-wea$date <- lubridate::ymd(wea$date)
-wea <- wea %>% select( date,prcp,snow,tmax,tmin)
-head(wea)
-```
-
-
-## Plot temperature timeseries
-```{r}
-wea %>%
-        ggplot(aes(date,tmax))+
-        geom_point() +
-        ylab('Max Temp') +
-        ggtitle('Downtown Boulder Weather')
-```
-
-## Plot precipiation timeseries
-- I assume in inches?
-```{r}
-wea %>%
-        ggplot(aes(date,prcp))+
-        geom_point() +
-        ylim(0,3)
-```
-
-
-## Plot snow timeseries 
-- I assume this is daily snow fall in inches?
-- Looks like we are missing a chunk of snowfall data from about 2011-2014 (pretty sure it snowed during those years :) )
-```{r}
-wea %>%
-        ggplot(aes(date,snow))+
-        geom_point() +
-        ylim(0,3)
-```
-
-
-
-
 
 
 
@@ -151,6 +90,9 @@ cols_to_log <- c('camping','boulder','urination','vehicle_as_residence','public_
 bk[cols_to_log] <- lapply(bk[cols_to_log],to_log)
 
 # clean up some bad age values?
+# had some bad values  (ie age=-1 or age=133)
+bk$age <- floor(lubridate::interval(bk$dob,bk$arrest_date)/years(1))
+bk <- bk %>% filter(age<120 & age>1)
 
 
 glimpse(bk)
@@ -158,36 +100,31 @@ glimpse(bk)
 
 
 ### Distribution of ages
-- some bad data points? (ie age=-1 or age=133)
 ```{r}
-ages <- floor(lubridate::interval(bk$dob,bk$arrest_date)/years(1))
-#ages
-hist(ages)
-summary(ages)
+hist(bk$age)
+#summary(bk$age)
 ```
-
 
 
 ### What percent of arrestees are transient?
 ```{r}
-
 mean(bk$transient,na.rm = TRUE)*100
 ```
 
 ### What percent of arrests are 'antihomeless' (true if any charges were related to 'antihomeless charges')
 ```{r}
-
 mean(bk$antihomeless)*100
+```
+
+
+### What are the arresting agencies?
+```{r}
+levels(bk$arresting_agency)
 ```
 
 ### What percent of arrests were made by Boulder PD?
 ```{r}
 mean(bk$boulder)*100
-```
-
-###
-```{r}
-levels(bk$arresting_agency)
 ```
 
 
@@ -228,6 +165,18 @@ bk %>%
         facet_wrap(~year)
 ```
 
+### transients only
+```{r}
+bk %>% 
+        filter(year %in% c(2011,2012,2013,2015,2015)) %>%
+        filter(transient==TRUE) %>% 
+        group_by(year,month_) %>%
+        tally() %>%
+        ggplot(aes(month_,n))+
+        geom_point() +
+        geom_bar(stat='identity',aes(fill=month_)) +
+        facet_wrap(~year)
+```
 
 ### Aggregate by wkday
 
@@ -240,6 +189,20 @@ bk %>%
         geom_col(aes(fill=wkday)) +
         ggtitle('Total Arrests By Day, for ALL data')
 ```
+
+
+### transients only
+```{r}
+bk %>%
+        filter(!is.na(wkday)) %>%
+        filter(transient==TRUE) %>% 
+        group_by(wkday) %>%
+        tally() %>%
+        ggplot( aes(wkday,n)) +
+        geom_col(aes(fill=wkday)) +
+        ggtitle('Total Arrests By Day, for ALL data, transients only')
+```
+
 
 ### By weekday, for separate years
 ```{r}
@@ -268,20 +231,119 @@ bk %>%
         ggtitle('Total Arrests By Day, for each month, includes all years')
 ```
 
+### By weekday, for separate months, transients only
+```{r}
+bk %>%
+        filter(!is.na(wkday)) %>%
+        filter(transient==TRUE ) %>% 
+        filter(year>1999) %>%
+        group_by(month_,wkday) %>%
+        tally() %>%
+        ggplot( aes(wkday,n)) +
+        geom_col(aes(fill=wkday)) +
+        facet_wrap(~month_) +
+        ggtitle('Total Arrests By Day, for each month, includes all years')
+```
+
+
 ### Try aggregating to daily level?
-- Looks like daily number of arrests is decreasing over time? 
+- Looks like daily number of non-transient arrests is decreasing over time? 
+- daily number of transient arrests is increasing slightly
 - Not sure if actual, or something to do with how data is recorded.
 ```{r}
 bk %>% 
         filter(arrest_date>"2000-01-01") %>%
-        group_by(arrest_date) %>%
+        group_by(arrest_date,transient) %>%
         tally() %>%
         ggplot(aes(arrest_date,n)) +
-        geom_point(alpha=0.2) +
+        geom_point(alpha=0.2,aes(col=transient)) +
         ylim(0,60) +
-        geom_smooth(method="lm")
-        
+        geom_smooth(method='lm') +
+        facet_wrap(~transient)
 ```
+
+### Look at number of arrests for 'anti-homeless' charges
+
+```{r}
+bk %>% 
+        filter(antihomeless==TRUE) %>% 
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        ggplot(aes(arrest_date,n)) +
+        geom_hex() +
+        geom_smooth(method = 'lm') +
+        ggtitle("Daily # arrests for anti homeless charges")
+```
+
+
+
+
+
+
+
+# Weather
+
+- Add more details about where weather data comes from (on Sam's github?)
+- What is *SNWD*? Some kind of accumulated snowfall?
+- What are *WT01*,*WT02* etc.?
+- *SNOW* is missing data from about 2011-204?
+
+
+## Load weather data
+```{r}
+wea <- read_csv('/Users/Andy/Google Drive/boco-jail/downtown-boulder-weather.csv',col_types = cols())
+glimpse(wea)
+```
+
+
+```{r}
+summary(wea)
+```
+
+
+```{r}
+names(wea) <- tolower(names(wea))
+wea$date <- lubridate::ymd(wea$date)
+wea <- wea %>% select( date,prcp,snow,tmax,tmin)
+head(wea)
+```
+
+
+## Plot temperature timeseries
+```{r}
+wea %>%
+        ggplot(aes(date,tmax))+
+        geom_point() +
+        ylab('Max Temp') +
+        ggtitle('Downtown Boulder Weather')
+```
+
+## Plot precipiation timeseries
+- I assume in inches?
+```{r}
+wea %>%
+        ggplot(aes(date,prcp))+
+        geom_point() +
+        ylim(0,3)
+```
+
+
+## Plot snow timeseries 
+- I assume this is daily snow fall in inches?
+- Looks like we are missing a chunk of snowfall data from about 2011-2014 (pretty sure it snowed during those years :) )
+```{r}
+wea %>%
+        ggplot(aes(date,snow))+
+        geom_point() +
+        ylim(0,3)
+```
+
+
+
+
+
+
+
 
 
 # Relationship between arrests and weather
@@ -302,7 +364,8 @@ bk %>%
         left_join(wea,by=c('arrest_date'='date')) %>%
         ggplot(aes(tmin,n)) +
         geom_hex() +
-        geom_smooth(method = 'lm')
+        geom_smooth(method = 'lm') +
+        ggtitle("Daily # arrests vs min Temp")
 ```
 
 
@@ -317,13 +380,13 @@ bk%>%
         left_join(wea,by=c('arrest_date'='date')) %>%
         ggplot(aes(tmin,n)) +
         geom_hex() +
-        geom_smooth(method = 'lm')
+        geom_smooth(method = 'lm') +
+        ggtitle("Daily # *transient* arrests vs min Temp.")
 ```
 
 
 ## Scatter plot daily _antihomeless_ arrests vs weather variables
-- 
-
+- Shows a slight positive trend, which is opposite what I would expect (thought there would be more arrests in colder weather)
 ```{r}
 bk%>%
         filter(antihomeless==TRUE) %>% 
@@ -331,8 +394,9 @@ bk%>%
         tally() %>% 
         left_join(wea,by=c('arrest_date'='date')) %>%
         ggplot(aes(tmin,n)) +
-        geom_point() +
-        geom_smooth(method = 'lm')
+        geom_hex() +
+        geom_smooth(method = 'lm') +
+        ggtitle("Daily anti-homeless arrests vs min temp")
 ```
 
 ## Try a logistic regression of antihomeless arrest as function of temperature, precip, etc.?
@@ -340,25 +404,19 @@ bk%>%
 
 ## Look at individual years?
 ```{r}
-bk_wea %>%
-        filter(year==2002) %>% 
+bk%>%
+        filter(antihomeless==TRUE) %>% 
         group_by(arrest_date) %>% 
         tally() %>% 
         left_join(wea,by=c('arrest_date'='date')) %>%
+        mutate(year=lubridate::year(arrest_date)) %>% 
         ggplot(aes(tmin,n)) +
-        geom_point() +
-        geom_smooth(method = 'lm')
+        geom_hex() +
+        geom_smooth(method = 'lm') +
+        facet_wrap(~year)
+#        ggtitle("Daily anti-homeless arrests vs min temp")
+
 ```
 
-
-```{r}
-bk %>% 
-        group_by(arrest_date) %>% 
-        tally() %>% 
-        left_join(wea,by=c('arrest_date'='date')) %>% 
-        ggplot(aes(arrest_date,tmin)) +
-        geom_point() +
-        geom_point(aes(x=arrest_date,y=n),color='red')
-```
 
 

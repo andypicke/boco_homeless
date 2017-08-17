@@ -15,153 +15,12 @@
 
 
 
-# Weather
-
-- Add more details about where weather data comes from (on Sam's github?)
-- What is *SNWD*? Some kind of accumulated snowfall?
-- What are *WT01*,*WT02* etc.?
-- *SNOW* is missing data from about 2011-204?
-
-
 ```r
 suppressPackageStartupMessages(library(dplyr))
 library(readr)
 suppressPackageStartupMessages(library(lubridate))
 library(ggplot2)
 ```
-
-## Load weather data
-
-```r
-wea <- read_csv('/Users/Andy/Google Drive/boco-jail/downtown-boulder-weather.csv',col_types = cols())
-glimpse(wea)
-```
-
-```
-## Observations: 6,400
-## Variables: 12
-## $ DATE <int> 20000101, 20000102, 20000103, 20000104, 20000105, 2000010...
-## $ PRCP <dbl> 0.00, 0.00, 0.08, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.0...
-## $ SNOW <dbl> 0.0, 0.0, 2.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0....
-## $ SNWD <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
-## $ TMAX <dbl> 54, 40, 36, 49, 47, 42, 47, 50, 45, 42, 61, 58, 41, 64, 6...
-## $ TMIN <dbl> 29, 22, 19, 13, 26, 16, 19, 23, 29, 30, 17, 41, 25, 25, 3...
-## $ WT01 <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
-## $ WT03 <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
-## $ WT04 <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
-## $ WT05 <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
-## $ WT06 <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
-## $ WT11 <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
-```
-
-
-
-```r
-summary(wea)
-```
-
-```
-##       DATE               PRCP              SNOW             SNWD          
-##  Min.   :20000101   Min.   :0.00000   Min.   : 0.0000   Length:6400       
-##  1st Qu.:20040519   1st Qu.:0.00000   1st Qu.: 0.0000   Class :character  
-##  Median :20081004   Median :0.00000   Median : 0.0000   Mode  :character  
-##  Mean   :20083356   Mean   :0.05655   Mean   : 0.2372                     
-##  3rd Qu.:20130222   3rd Qu.:0.01000   3rd Qu.: 0.0000                     
-##  Max.   :20170714   Max.   :9.08000   Max.   :16.7000                     
-##                     NA's   :5         NA's   :1190                        
-##       TMAX             TMIN             WT01           WT03     
-##  Min.   :  6.00   Min.   :-17.00   Min.   :1      Min.   :1     
-##  1st Qu.: 53.00   1st Qu.: 27.00   1st Qu.:1      1st Qu.:1     
-##  Median : 67.00   Median : 38.00   Median :1      Median :1     
-##  Mean   : 65.99   Mean   : 38.17   Mean   :1      Mean   :1     
-##  3rd Qu.: 81.00   3rd Qu.: 51.00   3rd Qu.:1      3rd Qu.:1     
-##  Max.   :102.00   Max.   : 77.00   Max.   :1      Max.   :1     
-##  NA's   :1        NA's   :3        NA's   :6304   NA's   :5623  
-##      WT04                WT05           WT06           WT11     
-##  Length:6400        Min.   :1      Min.   :1      Min.   :1     
-##  Class :character   1st Qu.:1      1st Qu.:1      1st Qu.:1     
-##  Mode  :character   Median :1      Median :1      Median :1     
-##                     Mean   :1      Mean   :1      Mean   :1     
-##                     3rd Qu.:1      3rd Qu.:1      3rd Qu.:1     
-##                     Max.   :1      Max.   :1      Max.   :1     
-##                     NA's   :6337   NA's   :6370   NA's   :6331
-```
-
-
-
-```r
-names(wea) <- tolower(names(wea))
-wea$date <- lubridate::ymd(wea$date)
-wea <- wea %>% select( date,prcp,snow,tmax,tmin)
-head(wea)
-```
-
-```
-## # A tibble: 6 x 5
-##         date  prcp  snow  tmax  tmin
-##       <date> <dbl> <dbl> <dbl> <dbl>
-## 1 2000-01-01  0.00   0.0    54    29
-## 2 2000-01-02  0.00   0.0    40    22
-## 3 2000-01-03  0.08   2.2    36    19
-## 4 2000-01-04  0.00   0.0    49    13
-## 5 2000-01-05  0.00   0.0    47    26
-## 6 2000-01-06  0.00   0.0    42    16
-```
-
-
-## Plot temperature timeseries
-
-```r
-wea %>%
-        ggplot(aes(date,tmax))+
-        geom_point() +
-        ylab('Max Temp') +
-        ggtitle('Downtown Boulder Weather')
-```
-
-```
-## Warning: Removed 1 rows containing missing values (geom_point).
-```
-
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
-
-## Plot precipiation timeseries
-- I assume in inches?
-
-```r
-wea %>%
-        ggplot(aes(date,prcp))+
-        geom_point() +
-        ylim(0,3)
-```
-
-```
-## Warning: Removed 7 rows containing missing values (geom_point).
-```
-
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
-
-
-## Plot snow timeseries 
-- I assume this is daily snow fall in inches?
-- Looks like we are missing a chunk of snowfall data from about 2011-2014 (pretty sure it snowed during those years :) )
-
-```r
-wea %>%
-        ggplot(aes(date,snow))+
-        geom_point() +
-        ylim(0,3)
-```
-
-```
-## Warning: Removed 1334 rows containing missing values (geom_point).
-```
-
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
-
-
-
-
 
 
 
@@ -274,14 +133,17 @@ cols_to_log <- c('camping','boulder','urination','vehicle_as_residence','public_
 bk[cols_to_log] <- lapply(bk[cols_to_log],to_log)
 
 # clean up some bad age values?
+# had some bad values  (ie age=-1 or age=133)
+bk$age <- floor(lubridate::interval(bk$dob,bk$arrest_date)/years(1))
+bk <- bk %>% filter(age<120 & age>1)
 
 
 glimpse(bk)
 ```
 
 ```
-## Observations: 163,939
-## Variables: 33
+## Observations: 163,933
+## Variables: 34
 ## $ name                 <chr> "LAWYER,KENNETH A", "COPELAND,MARK WILLIA...
 ## $ booked               <dttm> 2000-01-01 04:01:00, 2000-01-01 03:39:00...
 ## $ location             <fctr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, ...
@@ -315,29 +177,21 @@ glimpse(bk)
 ## $ month_               <ord> Jan, Jan, Jan, Jan, Jan, Jan, Jan, Jan, J...
 ## $ year                 <dbl> 2000, 2000, 2000, 2000, 2000, 2000, 2000,...
 ## $ booked_date          <date> 2000-01-01, 2000-01-01, 2000-01-01, 2000...
+## $ age                  <dbl> 41, 46, 51, 22, 19, 29, 24, 34, 38, 42, 2...
 ```
 
 
 ### Distribution of ages
-- some bad data points? (ie age=-1 or age=133)
 
 ```r
-ages <- floor(lubridate::interval(bk$dob,bk$arrest_date)/years(1))
-#ages
-hist(ages)
+hist(bk$age)
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
 
 ```r
-summary(ages)
+#summary(bk$age)
 ```
-
-```
-##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##    -1.0    22.0    29.0    31.9    40.0   133.0
-```
-
 
 
 ### What percent of arrestees are transient?
@@ -347,7 +201,7 @@ mean(bk$transient,na.rm = TRUE)*100
 ```
 
 ```
-## [1] 13.05669
+## [1] 13.05716
 ```
 
 ### What percent of arrests are 'antihomeless' (true if any charges were related to 'antihomeless charges')
@@ -357,20 +211,11 @@ mean(bk$antihomeless)*100
 ```
 
 ```
-## [1] 1.317563
+## [1] 1.317611
 ```
 
-### What percent of arrests were made by Boulder PD?
 
-```r
-mean(bk$boulder)*100
-```
-
-```
-## [1] 6.589646
-```
-
-###
+### What are the arresting agencies?
 
 ```r
 levels(bk$arresting_agency)
@@ -388,6 +233,16 @@ levels(bk$arresting_agency)
 ## [17] "WARD MARSHALS OFFICE"
 ```
 
+### What percent of arrests were made by Boulder PD?
+
+```r
+mean(bk$boulder)*100
+```
+
+```
+## [1] 6.589887
+```
+
 
 ### What agencies have the most arrests?
 
@@ -401,7 +256,7 @@ bk %>%
         coord_flip()
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
 ### Number of arrests by race
 
@@ -414,7 +269,7 @@ bk %>% group_by(race) %>%
         coord_flip()
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
 
 
 ### Aggregate Monthly
@@ -432,8 +287,23 @@ bk %>%
         facet_wrap(~year)
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
+### transients only
+
+```r
+bk %>% 
+        filter(year %in% c(2011,2012,2013,2015,2015)) %>%
+        filter(transient==TRUE) %>% 
+        group_by(year,month_) %>%
+        tally() %>%
+        ggplot(aes(month_,n))+
+        geom_point() +
+        geom_bar(stat='identity',aes(fill=month_)) +
+        facet_wrap(~year)
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 ### Aggregate by wkday
 
@@ -448,7 +318,24 @@ bk %>%
         ggtitle('Total Arrests By Day, for ALL data')
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+
+
+### transients only
+
+```r
+bk %>%
+        filter(!is.na(wkday)) %>%
+        filter(transient==TRUE) %>% 
+        group_by(wkday) %>%
+        tally() %>%
+        ggplot( aes(wkday,n)) +
+        geom_col(aes(fill=wkday)) +
+        ggtitle('Total Arrests By Day, for ALL data, transients only')
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+
 
 ### By weekday, for separate years
 
@@ -464,7 +351,7 @@ bk %>%
         ggtitle('Total Arrests By Day, for each year')
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 
 ### By weekday, for separate months
@@ -481,24 +368,210 @@ bk %>%
         ggtitle('Total Arrests By Day, for each month, includes all years')
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+
+### By weekday, for separate months, transients only
+
+```r
+bk %>%
+        filter(!is.na(wkday)) %>%
+        filter(transient==TRUE ) %>% 
+        filter(year>1999) %>%
+        group_by(month_,wkday) %>%
+        tally() %>%
+        ggplot( aes(wkday,n)) +
+        geom_col(aes(fill=wkday)) +
+        facet_wrap(~month_) +
+        ggtitle('Total Arrests By Day, for each month, includes all years')
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+
 
 ### Try aggregating to daily level?
-- Looks like daily number of arrests is decreasing over time? 
+- Looks like daily number of non-transient arrests is decreasing over time? 
+- daily number of transient arrests is increasing slightly
 - Not sure if actual, or something to do with how data is recorded.
 
 ```r
 bk %>% 
         filter(arrest_date>"2000-01-01") %>%
-        group_by(arrest_date) %>%
+        group_by(arrest_date,transient) %>%
         tally() %>%
         ggplot(aes(arrest_date,n)) +
-        geom_point(alpha=0.2) +
+        geom_point(alpha=0.2,aes(col=transient)) +
         ylim(0,60) +
-        geom_smooth(method="lm")
+        geom_smooth(method='lm') +
+        facet_wrap(~transient)
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+
+### Look at number of arrests for 'anti-homeless' charges
+
+
+```r
+bk %>% 
+        filter(antihomeless==TRUE) %>% 
+        group_by(arrest_date) %>% 
+        tally() %>% 
+        ggplot(aes(arrest_date,n)) +
+        geom_hex() +
+        geom_smooth(method = 'lm') +
+        ggtitle("Daily # arrests for anti homeless charges")
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+
+
+
+
+
+
+
+# Weather
+
+- Add more details about where weather data comes from (on Sam's github?)
+- What is *SNWD*? Some kind of accumulated snowfall?
+- What are *WT01*,*WT02* etc.?
+- *SNOW* is missing data from about 2011-204?
+
+
+## Load weather data
+
+```r
+wea <- read_csv('/Users/Andy/Google Drive/boco-jail/downtown-boulder-weather.csv',col_types = cols())
+glimpse(wea)
+```
+
+```
+## Observations: 6,400
+## Variables: 12
+## $ DATE <int> 20000101, 20000102, 20000103, 20000104, 20000105, 2000010...
+## $ PRCP <dbl> 0.00, 0.00, 0.08, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.0...
+## $ SNOW <dbl> 0.0, 0.0, 2.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0....
+## $ SNWD <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ TMAX <dbl> 54, 40, 36, 49, 47, 42, 47, 50, 45, 42, 61, 58, 41, 64, 6...
+## $ TMIN <dbl> 29, 22, 19, 13, 26, 16, 19, 23, 29, 30, 17, 41, 25, 25, 3...
+## $ WT01 <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ WT03 <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ WT04 <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ WT05 <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ WT06 <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+## $ WT11 <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N...
+```
+
+
+
+```r
+summary(wea)
+```
+
+```
+##       DATE               PRCP              SNOW             SNWD          
+##  Min.   :20000101   Min.   :0.00000   Min.   : 0.0000   Length:6400       
+##  1st Qu.:20040519   1st Qu.:0.00000   1st Qu.: 0.0000   Class :character  
+##  Median :20081004   Median :0.00000   Median : 0.0000   Mode  :character  
+##  Mean   :20083356   Mean   :0.05655   Mean   : 0.2372                     
+##  3rd Qu.:20130222   3rd Qu.:0.01000   3rd Qu.: 0.0000                     
+##  Max.   :20170714   Max.   :9.08000   Max.   :16.7000                     
+##                     NA's   :5         NA's   :1190                        
+##       TMAX             TMIN             WT01           WT03     
+##  Min.   :  6.00   Min.   :-17.00   Min.   :1      Min.   :1     
+##  1st Qu.: 53.00   1st Qu.: 27.00   1st Qu.:1      1st Qu.:1     
+##  Median : 67.00   Median : 38.00   Median :1      Median :1     
+##  Mean   : 65.99   Mean   : 38.17   Mean   :1      Mean   :1     
+##  3rd Qu.: 81.00   3rd Qu.: 51.00   3rd Qu.:1      3rd Qu.:1     
+##  Max.   :102.00   Max.   : 77.00   Max.   :1      Max.   :1     
+##  NA's   :1        NA's   :3        NA's   :6304   NA's   :5623  
+##      WT04                WT05           WT06           WT11     
+##  Length:6400        Min.   :1      Min.   :1      Min.   :1     
+##  Class :character   1st Qu.:1      1st Qu.:1      1st Qu.:1     
+##  Mode  :character   Median :1      Median :1      Median :1     
+##                     Mean   :1      Mean   :1      Mean   :1     
+##                     3rd Qu.:1      3rd Qu.:1      3rd Qu.:1     
+##                     Max.   :1      Max.   :1      Max.   :1     
+##                     NA's   :6337   NA's   :6370   NA's   :6331
+```
+
+
+
+```r
+names(wea) <- tolower(names(wea))
+wea$date <- lubridate::ymd(wea$date)
+wea <- wea %>% select( date,prcp,snow,tmax,tmin)
+head(wea)
+```
+
+```
+## # A tibble: 6 x 5
+##         date  prcp  snow  tmax  tmin
+##       <date> <dbl> <dbl> <dbl> <dbl>
+## 1 2000-01-01  0.00   0.0    54    29
+## 2 2000-01-02  0.00   0.0    40    22
+## 3 2000-01-03  0.08   2.2    36    19
+## 4 2000-01-04  0.00   0.0    49    13
+## 5 2000-01-05  0.00   0.0    47    26
+## 6 2000-01-06  0.00   0.0    42    16
+```
+
+
+## Plot temperature timeseries
+
+```r
+wea %>%
+        ggplot(aes(date,tmax))+
+        geom_point() +
+        ylab('Max Temp') +
+        ggtitle('Downtown Boulder Weather')
+```
+
+```
+## Warning: Removed 1 rows containing missing values (geom_point).
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
+
+## Plot precipiation timeseries
+- I assume in inches?
+
+```r
+wea %>%
+        ggplot(aes(date,prcp))+
+        geom_point() +
+        ylim(0,3)
+```
+
+```
+## Warning: Removed 7 rows containing missing values (geom_point).
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
+
+
+## Plot snow timeseries 
+- I assume this is daily snow fall in inches?
+- Looks like we are missing a chunk of snowfall data from about 2011-2014 (pretty sure it snowed during those years :) )
+
+```r
+wea %>%
+        ggplot(aes(date,snow))+
+        geom_point() +
+        ylim(0,3)
+```
+
+```
+## Warning: Removed 1334 rows containing missing values (geom_point).
+```
+
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
+
+
+
+
+
+
+
 
 
 # Relationship between arrests and weather
@@ -512,8 +585,8 @@ glimpse(bk_wea)
 ```
 
 ```
-## Observations: 163,939
-## Variables: 37
+## Observations: 163,933
+## Variables: 38
 ## $ name                 <chr> "LAWYER,KENNETH A", "COPELAND,MARK WILLIA...
 ## $ booked               <dttm> 2000-01-01 04:01:00, 2000-01-01 03:39:00...
 ## $ location             <fctr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, ...
@@ -547,6 +620,7 @@ glimpse(bk_wea)
 ## $ month_               <ord> Jan, Jan, Jan, Jan, Jan, Jan, Jan, Jan, J...
 ## $ year                 <dbl> 2000, 2000, 2000, 2000, 2000, 2000, 2000,...
 ## $ booked_date          <date> 2000-01-01, 2000-01-01, 2000-01-01, 2000...
+## $ age                  <dbl> 41, 46, 51, 22, 19, 29, 24, 34, 38, 42, 2...
 ## $ prcp                 <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,...
 ## $ snow                 <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,...
 ## $ tmax                 <dbl> 49, 54, 54, 54, 54, 54, 54, 51, 54, 54, 5...
@@ -563,7 +637,8 @@ bk %>%
         left_join(wea,by=c('arrest_date'='date')) %>%
         ggplot(aes(tmin,n)) +
         geom_hex() +
-        geom_smooth(method = 'lm')
+        geom_smooth(method = 'lm') +
+        ggtitle("Daily # arrests vs min Temp")
 ```
 
 ```
@@ -574,7 +649,7 @@ bk %>%
 ## Warning: Removed 7 rows containing non-finite values (stat_smooth).
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-26-1.png)<!-- -->
 
 
 
@@ -589,7 +664,8 @@ bk%>%
         left_join(wea,by=c('arrest_date'='date')) %>%
         ggplot(aes(tmin,n)) +
         geom_hex() +
-        geom_smooth(method = 'lm')
+        geom_smooth(method = 'lm') +
+        ggtitle("Daily # *transient* arrests vs min Temp.")
 ```
 
 ```
@@ -600,12 +676,11 @@ bk%>%
 ## Warning: Removed 7 rows containing non-finite values (stat_smooth).
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-27-1.png)<!-- -->
 
 
 ## Scatter plot daily _antihomeless_ arrests vs weather variables
-- 
-
+- Shows a slight positive trend, which is opposite what I would expect (thought there would be more arrests in colder weather)
 
 ```r
 bk%>%
@@ -614,19 +689,20 @@ bk%>%
         tally() %>% 
         left_join(wea,by=c('arrest_date'='date')) %>%
         ggplot(aes(tmin,n)) +
-        geom_point() +
-        geom_smooth(method = 'lm')
+        geom_hex() +
+        geom_smooth(method = 'lm') +
+        ggtitle("Daily anti-homeless arrests vs min temp")
+```
+
+```
+## Warning: Removed 3 rows containing non-finite values (stat_binhex).
 ```
 
 ```
 ## Warning: Removed 3 rows containing non-finite values (stat_smooth).
 ```
 
-```
-## Warning: Removed 3 rows containing missing values (geom_point).
-```
-
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-28-1.png)<!-- -->
 
 ## Try a logistic regression of antihomeless arrest as function of temperature, precip, etc.?
 
@@ -634,34 +710,31 @@ bk%>%
 ## Look at individual years?
 
 ```r
-bk_wea %>%
-        filter(year==2002) %>% 
+bk%>%
+        filter(antihomeless==TRUE) %>% 
         group_by(arrest_date) %>% 
         tally() %>% 
         left_join(wea,by=c('arrest_date'='date')) %>%
+        mutate(year=lubridate::year(arrest_date)) %>% 
         ggplot(aes(tmin,n)) +
-        geom_point() +
-        geom_smooth(method = 'lm')
+        geom_hex() +
+        geom_smooth(method = 'lm') +
+        facet_wrap(~year)
 ```
 
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
+```
+## Warning: Removed 3 rows containing non-finite values (stat_binhex).
+```
 
+```
+## Warning: Removed 3 rows containing non-finite values (stat_smooth).
+```
 
+![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-29-1.png)<!-- -->
 
 ```r
-bk %>% 
-        group_by(arrest_date) %>% 
-        tally() %>% 
-        left_join(wea,by=c('arrest_date'='date')) %>% 
-        ggplot(aes(arrest_date,tmin)) +
-        geom_point() +
-        geom_point(aes(x=arrest_date,y=n),color='red')
+#        ggtitle("Daily anti-homeless arrests vs min temp")
 ```
 
-```
-## Warning: Removed 7 rows containing missing values (geom_point).
-```
-
-![](wea_EDA_AndyP_files/figure-html/unnamed-chunk-26-1.png)<!-- -->
 
 
